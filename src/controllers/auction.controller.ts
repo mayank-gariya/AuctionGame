@@ -1,9 +1,11 @@
 import { Request ,Response } from "express";
 import { AuctionItem ,AuctionRoom } from "../types/auction";
+import { Room } from '../models/room.model.js';
+// import crypto from 'crypto';
 
 const rooms: Map<string , AuctionRoom> = new Map();
 
-export const CreateRoom = (req:Request,res:Response):void =>{
+export const CreateRoom = async (req:Request,res:Response):Promise<void> =>{
     try{
         const { name , hostId } = req.body;
         
@@ -12,36 +14,34 @@ export const CreateRoom = (req:Request,res:Response):void =>{
             return;
         }
 
-        const roomId = Math.random().toString(36).substring(2, 9);
-        const newRoom: AuctionRoom = {
-            id:roomId,
-            name,
-            hostId,
-            maxSeats:10,
-            participants:[hostId],
-            itemQueue:[],
-            status:'waiting',
-            createdAt:new Date(),
-        }
+        const newRoom = await Room.create({
+          name,
+          hostId,
+          maxSeats:10,
+          participants:[hostId],
+          itemQueue:[],
+          status:'waiting',
+          createdAt:new Date(),
+        });
 
-        rooms.set(roomId,newRoom);
         res.status(201).json({ message: 'Auction room created successfully', room: newRoom });
+        return;
     }catch(e){
         res.status(500).json({ error: 'Internal server error while creating room.' });
     }
 }
 
-export const addItemToRoom = (req:Request,res:Response):void=>{
+export const addItemToRoom = async (req:Request,res:Response):Promise<void> =>{
     try{
         const { roomId } = req.params;
+        const { title, description, startingPrice, sellerId } = req.body;
 
         if (!roomId) {
             res.status(400).json({ error: 'Room ID is required.' });
             return;
         }
 
-        const { title , description ,startingPrice ,sellerId } = req.body;
-        const room = rooms.get(roomId as string);
+        const room = await Room.findById(roomId);
         
         if (!room) {
             res.status(404).json({ error: 'Auction room not found.' });
@@ -53,37 +53,38 @@ export const addItemToRoom = (req:Request,res:Response):void=>{
             return;
         }
 
-        const newItem:AuctionItem = {
-            id:Math.random().toString(36).substring(2,9),
-            title,
-            description,
-            startingPrice:Number(startingPrice),
-            sellerId,
-            status:"pending",
-        }
+        const newItem = {
+              id: crypto.randomUUID(),
+              title,
+              description,
+              startingPrice: Number(startingPrice),
+              sellerId,
+              status: 'pending' as const,
+        };
 
         room.itemQueue.push(newItem);
-        res.status(200).json({ message: 'Item added to auction queue', item: newItem, room });
+        await room.save();
 
-    }catch(e){
-        res.status(500).json({ error: 'Failed to add item to queue.' });
+        res.status(200).json({ message: 'Item added to auction queue', item: newItem, room });
+        return;
+    }catch(error){
+       console.error(error)
+       res.status(500).json({ error: 'Failed to add item to queue.' });
+       return;
     }
 }
 
-export const joinRoom = (req: Request, res: Response): void => {
-  try {
+export const joinRoom = async (req: Request, res: Response):Promise<void> => {
+try {
     const { roomId } = req.params;
     const { userId } = req.body;
-
-    console.log(userId);
-    console.log(roomId);
 
     if (!roomId) {
       res.status(400).json({ error: 'Room ID is required in URL params.' });
       return;
     }
 
-    const room = rooms.get(roomId as string);
+    const room = await Room.findById(roomId);
     if (!room) {
       res.status(404).json({ error: 'Auction room not found.' });
       return;
@@ -100,22 +101,37 @@ export const joinRoom = (req: Request, res: Response): void => {
     }
 
     room.participants.push(userId);
+    await room.save();
+
     res.status(200).json({ message: 'Joined room successfully', room });
     return;
   } catch (e) {
+    console.error(e);
     res.status(500).json({ error: 'Internal server error. Try again later!' });
     return;
   }
 };
 
-export const getRoomDetails = (req: Request, res: Response): void => {
-  const { roomId } = req.params;
-  const room = rooms.get(roomId as string);
+export const getRoomDetails = async (req: Request, res: Response):Promise<void> => {
+  try {
+    const { roomId } = req.params;
 
-  if (!room) {
-    res.status(404).json({ error: 'Auction room not found.' });
+    if (!roomId) {
+      res.status(400).json({ error: 'Room ID is required.' });
+      return;
+    }
+
+    const room = await Room.findById(roomId);
+    if (!room) {
+      res.status(404).json({ error: 'Auction room not found.' });
+      return;
+    }
+
+    res.status(200).json({ room });
+    return;
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to fetch room details.' });
     return;
   }
-
-  res.status(200).json({ room });
 };

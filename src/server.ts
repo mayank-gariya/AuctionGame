@@ -5,8 +5,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import auctionRoutes from './routes/auction.routes.js';
 import { configureSockets } from './sockets/auction.socket.js';
+import { connectToDb } from './config/db.js';
 
 dotenv.config();
+connectToDb();
 
 const app = express();
 const server = http.createServer(app);
