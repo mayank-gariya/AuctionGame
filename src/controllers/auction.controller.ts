@@ -75,11 +75,18 @@ export const joinRoom = (req: Request, res: Response): void => {
     const { roomId } = req.params;
     const { userId } = req.body;
 
-    const room = rooms.get(roomId as string);
+    console.log(userId);
+    console.log(roomId);
 
-    if(!room){
-        res.status(404).json({ error: 'Auction room not found.' });
-        return;
+    if (!roomId) {
+      res.status(400).json({ error: 'Room ID is required in URL params.' });
+      return;
+    }
+
+    const room = rooms.get(roomId as string);
+    if (!room) {
+      res.status(404).json({ error: 'Auction room not found.' });
+      return;
     }
     
     if (room.participants.includes(userId)) {
@@ -94,12 +101,12 @@ export const joinRoom = (req: Request, res: Response): void => {
 
     room.participants.push(userId);
     res.status(200).json({ message: 'Joined room successfully', room });
-  }catch(e){
-    res.status(500).json({
-        message:"internally server has some error try again later !"
-    })
+    return;
+  } catch (e) {
+    res.status(500).json({ error: 'Internal server error. Try again later!' });
+    return;
   }
-}
+};
 
 export const getRoomDetails = (req: Request, res: Response): void => {
   const { roomId } = req.params;

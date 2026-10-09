@@ -3,6 +3,7 @@ import http from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import auctionRoutes from './routes/auction.routes.js';
 
 dotenv.config();
 
@@ -11,13 +12,15 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "*", // Replace with specific frontend URL in production
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api', auctionRoutes);
 
 // Basic Health Check Route
 app.get('/health', (req, res) => {
