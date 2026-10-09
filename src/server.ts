@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import auctionRoutes from './routes/auction.routes.js';
+import { configureSockets } from './sockets/auction.socket.js';
 
 dotenv.config();
 
@@ -27,14 +28,7 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', message: 'Auction backend is running smoothly' });
 });
 
-// Setup WebSocket Handlers
-io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
-
-  socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
-  });
-});
+configureSockets(io);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
