@@ -1,13 +1,17 @@
 import { Request ,Response } from "express";
 import { AuctionItem ,AuctionRoom } from "../types/auction";
 import { Room } from '../models/room.model.js';
-// import crypto from 'crypto';
+import crypto from 'crypto';
+
+import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
+
 
 const rooms: Map<string , AuctionRoom> = new Map();
 
-export const CreateRoom = async (req:Request,res:Response):Promise<void> =>{
+export const CreateRoom = async (req:AuthenticatedRequest,res:Response):Promise<void> =>{
     try{
-        const { name , hostId } = req.body;
+        const { name } = req.body;
+        const hostId = req.user?.userId;
         
         if (!name || !hostId){
             res.status(400).json({ error: 'Room name and hostId are required.' });

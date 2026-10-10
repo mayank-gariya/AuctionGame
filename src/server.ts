@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import auctionRoutes from './routes/auction.routes.js';
 import { configureSockets } from './sockets/auction.socket.js';
 import { connectToDb } from './config/db.js';
+import cookieParser from 'cookie-parser';
 
 dotenv.config();
 connectToDb();
@@ -22,6 +23,7 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 app.use('/api', auctionRoutes);
 
