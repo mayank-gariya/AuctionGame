@@ -5,13 +5,10 @@ import crypto from 'crypto';
 
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 
-
-const rooms: Map<string , AuctionRoom> = new Map();
-
 export const CreateRoom = async (req:AuthenticatedRequest,res:Response):Promise<void> =>{
     try{
         const { name } = req.body;
-        const hostId = req.user?.userId;
+        const hostId = crypto.randomUUID();
         
         if (!name || !hostId){
             res.status(400).json({ error: 'Room name and hostId are required.' });
