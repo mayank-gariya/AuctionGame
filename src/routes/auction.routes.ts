@@ -11,7 +11,7 @@ router.post('/auth/refresh', refreshTokenHandler);
 
 router.post('/rooms',Auction.CreateRoom);
 
-router.get('/rooms/:roomId',verifyAccessToken,Auction.getRoomDetails);
+router.get('/rooms/:roomId',Auction.getRoomDetails);
 router.post('/rooms/join/:roomId/',Auction.joinRoom);
 router.post('/rooms/:roomId/items',Auction.addItemToRoom);
 
