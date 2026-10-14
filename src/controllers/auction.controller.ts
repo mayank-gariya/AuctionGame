@@ -7,8 +7,7 @@ import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 
 export const CreateRoom = async (req:AuthenticatedRequest,res:Response):Promise<void> =>{
     try{
-        const { name } = req.body;
-        const hostId = crypto.randomUUID();
+        const { name , hostId} = req.body;
         
         if (!name || !hostId){
             res.status(400).json({ error: 'Room name and hostId are required.' });
@@ -133,6 +132,27 @@ export const getRoomDetails = async (req: Request, res: Response):Promise<void> 
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to fetch room details.' });
+    return;
+  }
+};
+
+export const getItemsAdded = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { roomId } = req.params;
+    const room = await Room.findById(roomId);
+
+    if (!room) {
+      res.status(404).json({ error: 'Auction room not found.' });
+      return;
+    }
+    res.status(200).json({ 
+      success: true, 
+      itemQueue: room.itemQueue || [] 
+    });
+
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Failed to fetch room items.' });
     return;
   }
 };

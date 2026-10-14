@@ -14,6 +14,15 @@
   --shadow: 0 14px 40px rgba(0, 0, 0, 0.08);
 }
 
+.hidden-scrollbar{
+overflow-y:auto;
+scrollbar-width:none;
+-ms-overflow-style:none;
+}
+.hidden-scrollbar::-webkit-scrollbar{
+display:none;
+}
+
 html { scroll-behavior: smooth; }
 
 body {
@@ -128,10 +137,11 @@ button, input { font: inherit; }
   padding: 105px 10vw 80px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
-  display: flex;
+  display: grid;
   align-items: flex-end;
   justify-content: space-between;
   gap: 60px;
+  grid-template-columns: 1fr 1fr;
 }
 
 .hero-copy { max-width: 700px; }
@@ -170,6 +180,7 @@ button, input { font: inherit; }
 
 .hero-note {
   display: flex;
+  justify-content: center;
   gap: 12px;
   min-width: 220px;
   padding: 18px 0;
