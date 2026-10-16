@@ -49,7 +49,8 @@ async function initRoom() {
         socket.on("connect", () => {
             socket.emit("join-auction", {
                 roomId,
-                userId: currentUser.id
+                userId: currentUser.id,
+                username:currentUser.username
             });
 
             appendHistory("Connected to live auction stream.", "system");
@@ -65,7 +66,7 @@ async function initRoom() {
 
         socket.on("bid_update", (data) => {
             appendHistory(
-                `${data.userId} has placed a bid on item: $${data.bidAmount}`, 
+                `${data.username} has placed a bid on item: $${data.bidAmount}`, 
                 "bid", 
                 "price-history-feed", 
                 "activity-empty-bids"
@@ -147,7 +148,7 @@ function renderRoomUI() {
     const seatCounter = document.getElementById("seat-counter");
 
     if (roomTitle) {
-        roomTitle.textContent = currentRoomData.name || "Auction Room";
+        roomTitle.textContent = (currentRoomData.name).toUpperCase() || "Auction Room".toUpperCase();
     }
 
     if (roomIdBadge) {
@@ -175,7 +176,7 @@ function renderRoomUI() {
     renderActiveItem();
 }
 
-function renderParticipants(participants, maxSeats=10) {
+function renderParticipants(participants, maxSeats = 10) {
     const seatsGrid = document.getElementById("seats-grid");
 
     if (!seatsGrid) return;
@@ -185,13 +186,18 @@ function renderParticipants(participants, maxSeats=10) {
     participants.forEach((participant) => {
         if (!participant) return;
 
-        const isHost =
-            String(participant) === String(currentRoomData.hostId);
+        const participantId = String(participant.userId);
+        const participantName = participant.username || "Unknown User";
 
-        const isCurrentUser=String(participant)===String(currentUser.id);
-        const username=isCurrentUser
-        ? currentUser.username
-        : `${participant.substring(0,6)}`;
+        const isHost =
+            participantId === String(currentRoomData.hostId);
+
+        const isCurrentUser =
+            participantId === String(currentUser.id);
+
+        const username = isCurrentUser
+            ? currentUser.username
+            : participantName;
 
         const userCard = document.createElement("div");
 
@@ -200,30 +206,37 @@ function renderParticipants(participants, maxSeats=10) {
 
         userCard.innerHTML = `
             <div class="w-7 h-7 rounded-full bg-[#242424] border border-[#383838] flex items-center justify-center text-[9px] font-bold text-neutral-200">
-                ${username.substring(0,2).toUpperCase()}
+                ${escapeHTML(username.substring(0, 2).toUpperCase())}
             </div>
+
             <div class="pr-2">
                 <p class="text-[10px] font-semibold text-neutral-300 whitespace-nowrap">
                     ${escapeHTML(username)}
                 </p>
+
                 <p class="text-[9px] text-neutral-600 whitespace-nowrap">
-                    ${isHost ? "Host" : isCurrentUser? 'you' : "Bidder"}
+                    ${isHost ? "Host" : isCurrentUser ? "You" : "Bidder"}
                 </p>
             </div>
-            <span class="w-1.5 h-1.5 rounded-full bg-white ${isHost ? "" : "opacity-50"}"></span>
+
+            <span class="w-1.5 h-1.5 rounded-full bg-white ${
+                isHost ? "" : "opacity-50"
+            }"></span>
         `;
 
         seatsGrid.appendChild(userCard);
     });
 
-    const emptySeats = Math.max(0, maxSeats - participants.length);
+    const emptySeats = Math.max(
+        0,
+        maxSeats - participants.length
+    );
 
     if (emptySeats > 0) {
         const emptyIndicator = document.createElement("div");
 
         emptyIndicator.className =
             "flex items-center gap-2 shrink-0 px-3 py-2 rounded-full border border-dashed border-[#292929] text-[10px] text-neutral-700";
-
         emptyIndicator.textContent = `+${emptySeats} open`;
         seatsGrid.appendChild(emptyIndicator);
     }
@@ -291,7 +304,10 @@ function placeBid() {
     const input = document.getElementById("bid-input");
     const bidAmount = Number(input.value);
 
-    if (!bidAmount || bidAmount <= 0) {
+    const currentPricefull = document.getElementById("current-price").textContent;
+    const currentPrice = Number(currentPricefull.split('$').at(-1));
+
+    if (!bidAmount || bidAmount <= 0 || bidAmount < currentPrice ) {
         alert("Please enter a valid bid amount.");
         return;
     }
@@ -487,7 +503,8 @@ window.addEventListener("beforeunload", () => {
     if (socket) {
         socket.emit("leave_auction_room", {
             roomId,
-            userId: currentUser.id
+            userId: currentUser.id,
+            username:currentUser.username
         });
     }
 });

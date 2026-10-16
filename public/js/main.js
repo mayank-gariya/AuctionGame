@@ -8,11 +8,15 @@ function renderModalSeats(room, currentUserId) {
     const seatDiv = document.createElement('div');
     
     if (participant) {
-      seatDiv.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: #030712; border: 1px solid #1e293b; padding: 0.5rem; border-radius: 0.5rem;";
-      seatDiv.innerHTML = `
-        <span style="font-size: 0.75rem; color: #cbd5e1; font-weight: 500;">👤 User ${participant.substring(0, 6)}...</span>
+    seatDiv.style.cssText =
+        "display: flex; align-items: center; justify-content: space-between; background: #030712; border: 1px solid #1e293b; padding: 0.5rem; border-radius: 0.5rem;";
+
+    seatDiv.innerHTML = `
+        <span style="font-size: 0.75rem; color: #cbd5e1; font-weight: 500;">
+            👤 ${participant.username || "Unknown User"}
+        </span>
         <span style="width: 6px; height: 6px; background: #10b981; border-radius: 50%;"></span>
-      `;
+    `;
     } else {
       seatDiv.style.cssText = "display: flex; align-items: center; justify-content: space-between; background: rgba(3, 7, 18, 0.4); border: 1px dashed #1e293b; padding: 0.5rem; border-radius: 0.5rem; color: #475569; font-size: 0.7rem;";
       seatDiv.innerHTML = `<span>Seat ${i + 1} (Empty)</span>`;
@@ -126,14 +130,12 @@ function checkAuthOrRedirect() {
   return true;
 }
 
-// Manage Room Section Visibility based on Auth State
 function handleRoomSectionVisibility() {
   const roomSection = document.querySelector('.room-control-section');
   if (!roomSection) return;
 
   const token = localStorage.getItem('accessToken');
   if (!token) {
-    // Hide or replace the room creation section for unauthenticated guests
     roomSection.style.display = 'none';
   } else {
     roomSection.style.display = 'block';
@@ -170,8 +172,8 @@ document.addEventListener("DOMContentLoaded", () => {
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${accessToken}`
-          },
-          body: JSON.stringify({ name: roomName , hostId : currentUser.id})
+          }, 
+          body: JSON.stringify({ name: roomName , hostId : currentUser.id , username : currentUser.username})
         });
 
         const data = await response.json();
@@ -197,20 +199,54 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // 2. Secured Join Room Handler (Loads inside modal)
   if (joinRoomBtn) {
-    joinRoomBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      if (!checkAuthOrRedirect()) return;
+    joinRoomBtn.addEventListener('click', async (e) => {
+    e.preventDefault();
 
-      const roomIdInput = document.getElementById('quickRoomId');
-      const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+    if (!checkAuthOrRedirect()) return;
 
-      if (!roomId) {
+    const roomIdInput = document.getElementById('quickRoomId');
+    const roomId = roomIdInput ? roomIdInput.value.trim() : '';
+
+    if (!roomId) {
         alert('Please enter a valid Room ID.');
         return;
-      }
+    }
 
-      roomIdInput.value = '';
-      window.location.href = `/room.html?roomId=${roomId}`;
+    const accessToken = localStorage.getItem('accessToken');
+
+    try {
+        const response = await fetch(`/api/rooms/join/${roomId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`
+            },
+            body: JSON.stringify({
+                userId: currentUser.id,
+                username: currentUser.username
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.status === 401 || response.status === 403) {
+            alert('Session expired. Please sign in again.');
+            localStorage.clear();
+            window.location.href = '/signin.html';
+            return;
+        }
+
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to join room.');
+        }
+
+        roomIdInput.value = '';
+        window.location.href = `/room.html?roomId=${roomId}`;
+
+      } catch (error) {
+            console.error('Join room error:', error);
+            alert(error.message || 'Failed to join room.');
+        }
     });
   }
   

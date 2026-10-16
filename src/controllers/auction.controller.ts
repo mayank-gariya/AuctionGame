@@ -3,13 +3,14 @@ import { AuctionItem ,AuctionRoom } from "../types/auction";
 import { Room } from '../models/room.model.js';
 import crypto from 'crypto';
 
+
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 
 export const CreateRoom = async (req:AuthenticatedRequest,res:Response):Promise<void> =>{
     try{
-        const { name , hostId} = req.body;
+        const { name , hostId , username } = req.body;
         
-        if (!name || !hostId){
+        if (!name || !hostId || !username){
             res.status(400).json({ error: 'Room name and hostId are required.' });
             return;
         }
@@ -18,7 +19,10 @@ export const CreateRoom = async (req:AuthenticatedRequest,res:Response):Promise<
           name,
           hostId,
           maxSeats:10,
-          participants:[hostId],
+          participants:[{
+            userId : hostId,
+            username: username
+          }],
           itemQueue:[],
           status:'waiting',
           createdAt:new Date(),
@@ -74,41 +78,70 @@ export const addItemToRoom = async (req:Request,res:Response):Promise<void> =>{
     }
 }
 
-export const joinRoom = async (req: Request, res: Response):Promise<void> => {
-try {
+export const joinRoom = async (req: Request, res: Response): Promise<void> => {
+  try {
     const { roomId } = req.params;
-    const { userId } = req.body;
+    const { userId, username } = req.body;
 
     if (!roomId) {
-      res.status(400).json({ error: 'Room ID is required in URL params.' });
+      res.status(400).json({ error: "Room ID is required." });
+      return;
+    }
+
+    if (!userId || !username) {
+      res.status(400).json({
+        error: "userId and username are required."
+      });
       return;
     }
 
     const room = await Room.findById(roomId);
+
     if (!room) {
-      res.status(404).json({ error: 'Auction room not found.' });
-      return;
-    }
-    
-    if (room.participants.includes(userId)) {
-      res.status(200).json({ message: 'User already in room', room });
+      res.status(404).json({
+        error: "Auction room not found."
+      });
       return;
     }
 
+    const alreadyJoined = room.participants.some(
+      (participant) => participant.userId === userId
+    );
+
+    if (alreadyJoined) {
+      res.status(200).json({
+        message: "User already in room",
+        room
+      });
+      return;
+    }
+
+    // Check room capacity
     if (room.participants.length >= room.maxSeats) {
-      res.status(403).json({ error: 'Auction room is full! Maximum 10 seats allowed.' });
+      res.status(403).json({
+        error: "Auction room is full! Maximum 10 seats allowed."
+      });
       return;
     }
 
-    room.participants.push(userId);
+    room.participants.push({
+      userId,
+      username
+    });
+
     await room.save();
 
-    res.status(200).json({ message: 'Joined room successfully', room });
-    return;
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ error: 'Internal server error. Try again later!' });
-    return;
+    res.status(200).json({
+      message: "Joined room successfully",
+      room
+    });
+
+  } catch (error) {
+    console.error("Join room error:", error);
+
+    res.status(500).json({
+      error: "Internal server error. Try again later!"
+    });
   }
 };
 

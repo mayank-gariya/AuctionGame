@@ -11,8 +11,11 @@ export interface AuctionRoom {
     id : string;
     name:string;
     hostId:string;
-    maxSeats: number; // Strictly 10
-    participants: string[]; // Array of user IDs or socket IDs currently seated
+    maxSeats: number;
+    participants: {
+        userId: string;
+        username: string;
+    }[];
     itemQueue: AuctionItem[];
     status: 'waiting' | 'live' | 'ended';
     createdAt: Date;

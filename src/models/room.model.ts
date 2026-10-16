@@ -9,11 +9,16 @@ export interface IAuctionItem {
   status: 'pending' | 'active' | 'sold' | 'unsold';
 }
 
+export interface IParticipant {
+  userId: string;
+  username: string;
+}
+
 export interface IRoom extends Document {
   name: string;
   hostId: string;
-  maxSeats: number; // Strictly 10
-  participants: string[]; // Array of user IDs
+  maxSeats: number;
+  participants: IParticipant[];
   itemQueue: IAuctionItem[];
   status: 'waiting' | 'live' | 'ended';
   createdAt: Date;
@@ -28,14 +33,36 @@ const auctionItemSchema = new Schema<IAuctionItem>({
   status: { type: String, enum: ['pending', 'active', 'sold', 'unsold'], default: 'pending' }
 });
 
+const participantSchema = new Schema<IParticipant>(
+  {
+    userId: { type: String, required: true },
+    username: { type: String, required: true }
+  },
+  { _id: false }
+);
+
 const roomSchema = new Schema<IRoom>({
   name: { type: String, required: true },
   hostId: { type: String, required: true },
-  maxSeats: { type: Number, default: 10, max: 10 }, // Enforcing the 10-seat limit at schema level
-  participants: { type: [String], default: [] },
+  maxSeats: { type: Number, default: 10, max: 10 },
+
+  participants: {
+    type: [participantSchema],
+    default: []
+  },
+
   itemQueue: [auctionItemSchema],
-  status: { type: String, enum: ['waiting', 'live', 'ended'], default: 'waiting' },
-  createdAt: { type: Date, default: Date.now }
+
+  status: {
+    type: String,
+    enum: ['waiting', 'live', 'ended'],
+    default: 'waiting'
+  },
+
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 export const Room = model<IRoom>('Room', roomSchema);
