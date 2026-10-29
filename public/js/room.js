@@ -72,18 +72,35 @@ async function initRoom() {
                 "activity-empty-bids"
             );
             
-            const priceMobile = document.getElementById("current-price-mobile");
-            const currentPrice = document.getElementById("current-price");
+            const currentPrices = document.querySelectorAll(
+                "#current-price, #current-highest-price"
+            );
 
-            if (priceMobile && currentPrice) {
-                priceMobile.innerText = `$ ${data.bidAmount}`;
-                currentPrice.textContent = `$${data.bidAmount}`;
+            currentPrices.forEach((element) => {
+                element.textContent = `$${Number(data.bidAmount).toLocaleString()}`;
+            });
+
+            const activeItem = currentRoomData?.itemQueue?.[0];
+
+            if (activeItem) {
+                activeItem.currentBid = Number(data.bidAmount);
             }
         });
 
         socket.on("queue_updated", (data) => {
             appendHistory(data.message, "queue");
             fetchRoomDetails();
+        });
+
+        socket.on("status_update_rejected", (data) => {
+            console.error("❌ Status update rejected:", data);
+
+            appendHistory(
+                data.message || "Auction control action was rejected.",
+                "error"
+            );
+
+            alert(data.message || "Auction control action was rejected.");
         });
 
         socket.on("auction_ended", (data) => {
@@ -166,14 +183,176 @@ function renderRoomUI() {
 
     const hostControls = document.getElementById("host-controls");
 
-    if (hostControls) {
-        const isHost =
-            String(currentUser.id) === String(currentRoomData.hostId);
+    const isHost =
+        String(currentUser.id) === String(currentRoomData.hostId);
 
+    if (hostControls) {
         hostControls.classList.toggle("hidden", !isHost);
     }
 
+    // Disable bid area for the host
+    const bidControls = document.getElementById("bid-controls");
+    const hostBidNotice = document.getElementById("host-bid-notice");
+    const bidHint = document.getElementById("bid-hint");
+    const bidInput = document.getElementById("bid-input");
+
+    if (bidControls) {
+        bidControls.classList.toggle("hidden", isHost);
+    }
+    if (hostBidNotice) {
+        hostBidNotice.classList.toggle("hidden", !isHost);
+    }
+    if (bidHint) {
+        bidHint.classList.toggle("hidden", isHost);
+    }
+    if (bidInput) {
+        bidInput.disabled = isHost;
+    }
+
     renderActiveItem();
+    updateHostAuctionControls();
+}
+
+function getCurrentAuctionItem() {
+    return currentRoomData?.itemQueue?.[0] || null;
+}
+
+
+function updateHostAuctionControls() {
+    const item = getCurrentAuctionItem();
+
+    const startBtn = document.getElementById("start-item-btn");
+    const pauseBtn = document.getElementById("pause-item-btn");
+    const resumeBtn = document.getElementById("resume-item-btn");
+    const closeBtn = document.getElementById("close-item-btn");
+
+    const statusText = document.getElementById("host-item-status");
+    const statusDot = document.getElementById("host-item-status-dot");
+
+    if (!item) {
+        [startBtn, pauseBtn, resumeBtn, closeBtn].forEach((btn) => {
+            if (btn) btn.disabled = true;
+    });
+
+    if (statusText) {
+        statusText.textContent = "No item";
+    }
+
+    if (statusDot) {
+        statusDot.className =
+            "w-2 h-2 rounded-full bg-neutral-400";
+    }
+
+        return;
+    }
+
+    const status = item.status || "pending";
+
+    // Disable everything first
+    [startBtn, pauseBtn, resumeBtn, closeBtn].forEach((btn) => {
+        if (btn) btn.disabled = true;
+    });
+
+    console.log(status)    
+
+    if (status === "pending") {
+
+        // Allow starting/resuming
+        if (startBtn) startBtn.disabled = false;
+        if (resumeBtn) resumeBtn.disabled = false;
+
+        if (statusText) {
+            statusText.textContent = "pending";
+        }   
+
+        if (statusDot) {
+            statusDot.className =
+                "w-2 h-2 rounded-full bg-neutral-400";
+        }
+    }
+
+    else if (status === "active") {
+        if (pauseBtn) pauseBtn.disabled = false;
+        if (closeBtn) closeBtn.disabled = false;
+
+        if (statusText) {
+            statusText.textContent = "Bidding Active";
+        }
+        if (statusDot) {
+            statusDot.className =
+                "w-2 h-2 rounded-full bg-emerald-500";
+        }
+    }
+    else if (status === "unsold") {
+        if (statusText) {
+            statusText.textContent = "Closed";
+        }
+
+        if (statusDot) {
+            statusDot.className =
+                "w-2 h-2 rounded-full bg-neutral-400";
+        }
+    }
+    else if (status === "sold") {
+        if (statusText) {
+            statusText.textContent = "Sold";
+        }
+        if (statusDot) {
+            statusDot.className =
+                "w-2 h-2 rounded-full bg-neutral-400";
+        }
+    }
+}
+
+function updateItemStatus(status) {
+    const item = getCurrentAuctionItem();
+
+    if (!item) {
+        alert("There is no item to control.");
+        return;
+    }
+
+    if (!socket || !socket.connected) {
+        alert("You are not connected to the auction.");
+        return;
+    }
+
+    const itemId = item.id || item._id;
+
+    console.log("🎛️ Sending item status update:", {
+        roomId,
+        itemId,
+        status,
+        socketConnected: socket.connected,
+        currentUserId: currentUser.id,
+        hostId: currentRoomData?.hostId
+    });
+
+    socket.emit("item_status_update", {
+        roomId,
+        itemId,
+        status
+    });
+}
+
+
+function startCurrentItem() {
+    updateItemStatus("active");
+}
+
+
+function pauseCurrentItem() {
+    updateItemStatus("pending");
+}
+
+
+function resumeCurrentItem() {
+    updateItemStatus("active");
+}
+
+
+function closeCurrentItem() {
+    updateItemStatus("unsold");
 }
 
 function renderParticipants(participants, maxSeats = 10) {
@@ -201,27 +380,24 @@ function renderParticipants(participants, maxSeats = 10) {
 
         const userCard = document.createElement("div");
 
-        userCard.className =
-            "flex items-center gap-2 shrink-0 bg-[#151515] border border-[#292929] rounded-full px-2 py-1.5";
+        userCard.className = "user-card";
 
         userCard.innerHTML = `
-            <div class="w-7 h-7 rounded-full bg-[#242424] border border-[#383838] flex items-center justify-center text-[9px] font-bold text-neutral-200">
+            <div class="user-avatar">
                 ${escapeHTML(username.substring(0, 2).toUpperCase())}
             </div>
 
-            <div class="pr-2">
-                <p class="text-[10px] font-semibold text-neutral-300 whitespace-nowrap">
+            <div>
+                <p class="user-name">
                     ${escapeHTML(username)}
                 </p>
 
-                <p class="text-[9px] text-neutral-600 whitespace-nowrap">
+                <p class="user-role">
                     ${isHost ? "Host" : isCurrentUser ? "You" : "Bidder"}
                 </p>
             </div>
 
-            <span class="w-1.5 h-1.5 rounded-full bg-white ${
-                isHost ? "" : "opacity-50"
-            }"></span>
+            <span class="user-status-dot ${isHost ? "" : "muted"}"></span>
         `;
 
         seatsGrid.appendChild(userCard);
@@ -235,8 +411,7 @@ function renderParticipants(participants, maxSeats = 10) {
     if (emptySeats > 0) {
         const emptyIndicator = document.createElement("div");
 
-        emptyIndicator.className =
-            "flex items-center gap-2 shrink-0 px-3 py-2 rounded-full border border-dashed border-[#292929] text-[10px] text-neutral-700";
+        emptyIndicator.className = "empty-seat";
         emptyIndicator.textContent = `+${emptySeats} open`;
         seatsGrid.appendChild(emptyIndicator);
     }
@@ -244,21 +419,42 @@ function renderParticipants(participants, maxSeats = 10) {
 
 function renderActiveItem() {
     const queue = currentRoomData.itemQueue || [];
+
     const title = document.getElementById("item-title");
     const description = document.getElementById("item-desc");
-    const startingPrice = document.getElementById("starting-price");
+
+    // There may be more than one starting-price element
+    const startingPrices = document.querySelectorAll("#starting-price");
+
     const seller = document.getElementById("item-seller");
-    const currentPrice = document.getElementById("current-price");
+
+    // Current bid displays
+    const currentPrices = document.querySelectorAll(
+        "#current-price, #current-highest-price"
+    );
 
     if (!queue.length) {
-        if (title) title.textContent = "Waiting for host to queue item...";
+        if (title) {
+            title.textContent = "Waiting for host to queue item...";
+        }
+
         if (description) {
             description.textContent =
                 "Description of the item will appear here once the auction begins.";
         }
-        if (startingPrice) startingPrice.textContent = "$0";
-        if (seller) seller.textContent = "Seller: —";
-        if (currentPrice) currentPrice.textContent = "$0";
+
+        startingPrices.forEach((element) => {
+            element.textContent = "$0";
+        });
+
+        currentPrices.forEach((element) => {
+            element.textContent = "$0";
+        });
+
+        if (seller) {
+            seller.textContent = "Seller: —";
+        }
+
         return;
     }
 
@@ -273,25 +469,65 @@ function renderActiveItem() {
             activeItem.description || "No description available.";
     }
 
-    if (startingPrice) {
-        startingPrice.textContent = `$${activeItem.startingPrice || 0}`;
-    }
+    const startingPrice = Number(activeItem.startingPrice || 0);
+
+    startingPrices.forEach((element) => {
+        element.textContent = `$${startingPrice}`;
+    });
+
+    const currentBid = Number(
+        activeItem.currentBid ??
+        activeItem.highestBid ??
+        activeItem.startingPrice ??
+        0
+    );
+
+    currentPrices.forEach((element) => {
+        element.textContent = `$${currentBid}`;
+    });
+
 
     if (seller) {
         const sellerId = activeItem.sellerId || "";
-        seller.textContent = sellerId
-            ? `Seller: ${sellerId.substring(0, 6)}...`
-            : "Seller: —";
-    }
+        let sellerName = null;
 
-    if (currentPrice) {
-        const bid =
-            activeItem.currentBid ??
-            activeItem.highestBid ??
-            activeItem.startingPrice ??
-            0;
+        if (sellerId) {
+            const participants = currentRoomData.participants || [];
 
-        currentPrice.textContent = `$${bid}`;
+            const sellerParticipant = participants.find(
+                (p) =>
+                    p &&
+                    String(p.userId) === String(sellerId)
+            );
+
+            if (sellerParticipant?.username) {
+                sellerName = sellerParticipant.username;
+            } else if (
+                String(sellerId) === String(currentUser.id)
+            ) {
+                sellerName = currentUser.username;
+            } else if (
+                currentRoomData.hostId &&
+                String(sellerId) === String(currentRoomData.hostId)
+            ) {
+                const hostParticipant = participants.find(
+                    (p) =>
+                        p &&
+                        String(p.userId) ===
+                        String(currentRoomData.hostId)
+                );
+
+                if (hostParticipant?.username) {
+                    sellerName = hostParticipant.username;
+                }
+            }
+        }
+
+        seller.textContent = sellerName
+            ? `Seller: ${sellerName}`
+            : sellerId
+                ? `Seller: ${sellerId.substring(0, 6)}...`
+                : "Seller: —";
     }
 }
 
@@ -301,28 +537,51 @@ function placeBid() {
         return;
     }
 
-    const input = document.getElementById("bid-input");
-    const bidAmount = Number(input.value);
-
-    const currentPricefull = document.getElementById("current-price").textContent;
-    const currentPrice = Number(currentPricefull.split('$').at(-1));
-
-    if (!bidAmount || bidAmount <= 0 || bidAmount < currentPrice ) {
-        alert("Please enter a valid bid amount.");
+    // Host cannot place bids
+    if (
+        currentRoomData &&
+        String(currentUser.id) === String(currentRoomData.hostId)
+    ) {
+        alert("Host cannot place bids.");
         return;
     }
 
+    // Get current auction item FIRST
     const activeItem = currentRoomData?.itemQueue?.[0];
+
+    if (!activeItem) {
+        alert("There is no item currently in the auction.");
+        return;
+    }
+
+    const bidInput = document.getElementById("bid-input");
+
+    // Bidding is allowed only when item is active
+    if (activeItem.status !== "active") {
+        alert("Bidding is not open for this item.");
+        return;
+    }
+
+    const bidAmount = Number(bidInput.value);
+
+    const currentBid = Number(
+        activeItem.currentBid || activeItem.startingPrice
+    );
+
+    if (!bidAmount || bidAmount <= 0 || bidAmount <= currentBid) {
+        alert(`Bid must be higher than the current bid of $${currentBid}`);
+        return;
+    }
 
     socket.emit("place-bid", {
         roomId,
         userId: currentUser.id,
         bidAmount,
-        itemId: activeItem?.id || activeItem?._id || "item_1"
+        itemId: activeItem.id || activeItem._id
     });
 
-    input.value = "";
-    input.focus();
+    bidInput.value = "";
+    bidInput.focus();
 }
 
 document.addEventListener("keydown", (event) => {
@@ -371,16 +630,9 @@ async function addItemToQueue() {
             throw new Error(data.error || "Unable to add item.");
         }
 
-        socket.emit("item_status_update", {
-            roomId,
-            itemId: data.item.id || data.item._id,
-            status: "Inserted In Auction"
-        });
-
         document.getElementById("new-item-title").value = "";
         document.getElementById("new-item-price").value = "";
         document.getElementById("new-item-desc").value = "";
-        document.getElementById("starting-price-mobile").innerText = startingPrice
 
         appendHistory(
             `New item "${title}" added to the auction queue.`,
@@ -411,28 +663,32 @@ function appendHistory(text, type = "system", loc = "room-activity-feed", loc2 =
     });
 
     let icon = "•";
-    let iconClass = "bg-[#1b1b1b] text-neutral-500";
-    let messageClass = "text-neutral-400";
+    let iconClass = "bg-[#f1f1ee] text-neutral-500";
+    let messageClass = "text-neutral-600";
 
     if (type === "bid") {
         icon = "\$";
-        iconClass = "bg-white text-black";
-        messageClass = "text-white font-medium";
+        iconClass = "bg-neutral-900 text-white";
+        messageClass = "text-neutral-900 font-medium";
     } else if (type === "join") {
         icon = "+";
-        iconClass = "bg-[#1d1d1d] text-neutral-300";
-        messageClass = "text-neutral-300";
+        iconClass = "bg-[#f1f1ee] text-neutral-600";
+        messageClass = "text-neutral-600";
     } else if (type === "queue") {
         icon = "□";
-        iconClass = "bg-[#1b1b1b] text-neutral-300";
-        messageClass = "text-neutral-300";
+        iconClass = "bg-[#f1f1ee] text-neutral-600";
+        messageClass = "text-neutral-600";
     } else if (type === "winner") {
         icon = "✓";
-        iconClass = "bg-white text-black";
-        messageClass = "text-white font-semibold";
+        iconClass = "bg-neutral-900 text-white";
+        messageClass = "text-neutral-900 font-semibold";
     } else if (type === "error") {
         icon = "!";
-        iconClass = "bg-[#1c1c1c] text-neutral-400";
+        iconClass = "bg-[#f1f1ee] text-neutral-500";
+        messageClass = "text-neutral-500";
+    } else if (type === "leave") {
+        icon = "–";
+        iconClass = "bg-[#f1f1ee] text-neutral-500";
         messageClass = "text-neutral-500";
     }
 
@@ -447,7 +703,7 @@ function appendHistory(text, type = "system", loc = "room-activity-feed", loc2 =
                 <p class="text-[11px] leading-5 break-words ${messageClass}">
                     ${escapeHTML(text)}
                 </p>
-                <p class="mt-0.5 text-[9px] text-neutral-700">
+                <p class="mt-0.5 text-[9px] text-neutral-400">
                     ${time}
                 </p>
             </div>
@@ -469,11 +725,11 @@ function showWinnerModal(winnerName, winningBid, itemTitle) {
         document.getElementById("winner-announcement");
 
     announcement.innerHTML = `
-        <strong class="text-white">${escapeHTML(winnerName)}</strong>
+        <strong class="text-neutral-900">${escapeHTML(winnerName)}</strong>
         won
-        <strong class="text-white">${escapeHTML(itemTitle)}</strong>
+        <strong class="text-neutral-900">${escapeHTML(itemTitle)}</strong>
         with a winning bid of
-        <strong class="text-white">$${winningBid}</strong>.
+        <strong class="text-neutral-900">$${winningBid}</strong>.
     `;
 
     const modal = document.getElementById("winner-modal");

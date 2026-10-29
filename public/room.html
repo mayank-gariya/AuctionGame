@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
@@ -7,257 +7,95 @@
   <title>Live Auction Arena — Auction House</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          colors: {
-            ink: "#090909",
-            panel: "#111111",
-            panel2: "#161616",
-            line: "#292929",
-            muted: "#8b8b8b",
-            soft: "#cfcfcf",
-            white: "#f5f5f5"
-          },
-          boxShadow: {
-            premium: "0 20px 60px rgba(0,0,0,0.35)",
-            soft: "0 10px 30px rgba(0,0,0,0.25)"
-          }
-        }
-      }
-    }
-  </script>
-  <style>
-    * {
-      box-sizing: border-box
-    }
-
-    html {
-      background: #090909
-    }
-
-    body {
-      margin: 0;
-      background: radial-gradient(circle at 50% -20%, rgba(255, 255, 255, .045), transparent 40%), #090909;
-      color: #f5f5f5;
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
-    }
-
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px
-    }
-
-    ::-webkit-scrollbar-track {
-      background: transparent
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: #333;
-      border-radius: 999px
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: #555
-    }
-
-    .panel {
-      background: rgba(17, 17, 17, .94);
-      border: 1px solid #292929;
-      border-radius: 18px
-    }
-
-    .sub-panel {
-      background: #0d0d0d;
-      border: 1px solid #252525;
-      border-radius: 14px
-    }
-
-    .live-dot {
-      width: 7px;
-      height: 7px;
-      background: #fff;
-      border-radius: 50%;
-      box-shadow: 0 0 0 4px rgba(255, 255, 255, .08)
-    }
-
-    .premium-input {
-      background: #0b0b0b;
-      border: 1px solid #303030;
-      transition: .2s
-    }
-
-    .premium-input:hover {
-      border-color: #454545
-    }
-
-    .premium-input:focus {
-      outline: none;
-      border-color: #777;
-      box-shadow: 0 0 0 3px rgba(255, 255, 255, .05)
-    }
-
-    .primary-button {
-      background: #f5f5f5;
-      color: #090909;
-      transition: .2s
-    }
-
-    .primary-button:hover {
-      background: #fff;
-      transform: translateY(-1px);
-      box-shadow: 0 8px 25px rgba(255, 255, 255, .08)
-    }
-
-    .secondary-button {
-      background: #151515;
-      border: 1px solid #303030;
-      color: #ddd;
-      transition: .2s
-    }
-
-    .secondary-button:hover {
-      background: #1d1d1d;
-      border-color: #444
-    }
-
-    .toggle-button {
-      color: #666;
-      transition: .2s
-    }
-
-    .toggle-button.active {
-      background: #1d1d1d;
-      color: #fff;
-      box-shadow: inset 0 0 0 1px #303030
-    }
-
-    .activity-row {
-      border-bottom: 1px solid #202020;
-      padding: 12px 0
-    }
-
-    .activity-row:last-child {
-      border-bottom: none
-    }
-
-    .user-card {
-      background: #151515;
-      border: 1px solid #292929;
-      transition: .2s
-    }
-
-    .user-card:hover {
-      border-color: #414141;
-      transform: translateY(-1px)
-    }
-
-    .modal-backdrop {
-      background: rgba(0, 0, 0, .82);
-      backdrop-filter: blur(14px)
-    }
-
-    #host-sidebar:not(:has(#host-controls:not(.hidden))) {
-      display: none
-    }
-  </style>
+  <link rel="stylesheet" href="/css/auction.css">
 </head>
 
 <body class="min-h-screen flex flex-col">
-  <header class="h-[72px] shrink-0 border-b border-[#242424] bg-[#0b0b0b]/95 backdrop-blur-xl">
-    <div class="h-full max-w-[1600px] mx-auto px-5 lg:px-8 flex items-center justify-between">
+
+  <header class="app-header">
+    <div class="app-header-inner">
       <div class="flex items-center gap-4">
-        <div class="w-9 h-9 rounded-full bg-white text-black flex items-center justify-center text-xs font-black">AH
-        </div>
+        <div class="brand-mark">AH</div>
         <div class="hidden sm:block">
           <div class="flex items-center gap-2">
-            <h1 id="room-title" class="text-sm font-semibold tracking-tight text-white">Loading Room...</h1>
-            <span
-              class="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.18em] text-neutral-500"><span
-                class="live-dot"></span>Live</span>
+            <h1 id="room-title" class="room-title">Loading Room...</h1>
+            <span class="live-pill"><span class="live-dot"></span>Live</span>
           </div>
           <div class="mt-0.5 flex items-center gap-2">
-            <span class="text-[11px] text-neutral-600">Auction Arena</span>
-            <span class="text-neutral-700">•</span>
+            <span class="text-[11px] text-neutral-500">Auction Arena</span>
+            <span class="text-neutral-300">•</span>
             <span id="room-id-badge" class="text-[10px] font-mono text-neutral-500">ID: --</span>
           </div>
         </div>
       </div>
       <div class="flex items-center gap-4">
-        <div id="user-badge" class="hidden sm:flex items-center text-xs font-medium text-neutral-300">Checking auth...
-        </div>
+        <div id="user-badge" class="user-badge">Checking auth...</div>
         <button onclick="leaveRoom()" class="secondary-button px-4 py-2 rounded-lg text-xs font-semibold">Leave</button>
       </div>
     </div>
   </header>
 
-  <main class="flex-1 w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-5 lg:py-6 flex flex-col gap-5">
+  <main class="app-main">
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
 
+      <!-- CURRENT AUCTION -->
       <section class="panel p-5 lg:p-6 flex flex-col min-w-0 min-h-[620px]">
-        <div class="flex items-center justify-between pb-4 border-b border-[#272727]">
-          <div>
-            <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Current auction</p>
-          </div>
-          <span
-            class="px-2.5 py-1 rounded-full border border-[#2c2c2c] bg-[#151515] text-[9px] uppercase tracking-[0.15em] text-neutral-500">Live</span>
+        <div class="panel-head">
+          <p class="label">Current auction</p>
+          <span class="tag-pill">Live</span>
         </div>
 
         <div class="flex-1 flex flex-col justify-center">
-          <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-600 mb-4">Lot currently on the floor</p>
-          <h2 id="item-title" class="text-4xl lg:text-5xl font-black tracking-[-0.045em] leading-[.98] text-white">
-            Waiting for host to queue item...</h2>
-          <p id="item-desc" class="mt-5 text-sm text-neutral-500 leading-7">Description of the item will appear here
-            once the auction begins.</p>
+          <p class="label mb-4">Lot currently on the floor</p>
+          <h2 id="item-title" class="item-title">Waiting for host to queue item...</h2>
+          <p id="item-desc" class="item-desc">Description of the item will appear here once the auction begins.</p>
 
-          <div class="mt-10 grid grid-cols-2 gap-5 pt-5 border-t border-[#292929]">
+          <div class="price-grid">
             <div>
-              <p class="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Current bid</p>
-              <p id="current-price" class="mt-2 text-3xl font-black tracking-tight text-white">$0</p>
+              <p class="label">Current bid</p>
+              <p id="current-price" class="price-current">$0</p>
             </div>
             <div class="text-right">
-              <p class="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Starting price</p>
-              <p id="starting-price" class="mt-2 text-xl font-semibold text-neutral-400">$0</p>
+              <p class="label">Starting price</p>
+              <p id="starting-price" class="price-start">$0</p>
             </div>
           </div>
         </div>
 
         <div class="sub-panel p-4">
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Seller</span>
+            <span class="label">Seller</span>
             <span id="item-seller" class="text-[10px] text-neutral-500">Seller: Loading...</span>
           </div>
           <div class="flex items-center justify-between">
-            <span class="text-[10px] text-neutral-700">Auction status</span>
-            <span class="flex items-center gap-2 text-[10px] text-neutral-400"><span
-                class="w-1.5 h-1.5 rounded-full bg-white"></span>Active</span>
+            <span class="text-[10px] text-neutral-400">Auction status</span>
+            <span class="flex items-center gap-2 text-[10px] text-neutral-500">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Active
+            </span>
           </div>
         </div>
       </section>
 
+      <!-- LIVE BIDS -->
       <section class="panel p-5 lg:p-6 flex flex-col min-w-0 min-h-[620px]">
-        <div class="flex items-center justify-between pb-4 border-b border-[#272727]">
+        <div class="panel-head">
           <div>
-            <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Auction activity</p>
-            <h2 class="mt-1 text-sm font-semibold text-white">Live bids</h2>
+            <p class="label">Auction activity</p>
+            <h2 class="mt-1 text-sm font-semibold text-neutral-800">Live bids</h2>
           </div>
-          <span id="bid-count" class="text-[10px] text-neutral-600">Live</span>
+          <span id="bid-count" class="text-[10px] text-neutral-500">Live</span>
         </div>
 
-        <div class="mt-4 sub-panel flex-1 overflow-hidden flex flex-col">
-          <div class="px-4 py-3 border-b border-[#242424] flex items-center justify-between">
-            <span class="text-[10px] uppercase tracking-[0.16em] text-neutral-600">Bid history</span>
-            <span class="text-[10px] text-neutral-700">Highest first</span>
+        <div class="mt-4 sub-panel flex-1 overflow-hidden flex flex-col min-h-0">
+          <div class="feed-head">
+            <span class="label">Bid history</span>
+            <span class="text-[10px] text-neutral-400">Highest first</span>
           </div>
 
-          <div id="price-history-feed" class="flex-1 overflow-y-auto px-4">
+          <div id="price-history-feed" class="feed-scroll px-4">
             <div class="py-10 text-center activity-empty-bids">
-              <div
-                class="w-9 h-9 mx-auto rounded-full bg-[#171717] border border-[#292929] flex items-center justify-center text-neutral-600">
-                $</div>
-              <p class="mt-3 text-[11px] text-neutral-600">Waiting for bids...</p>
+              <div class="empty-icon">$</div>
+              <p class="mt-3 text-[11px] text-neutral-500">Waiting for bids...</p>
             </div>
           </div>
         </div>
@@ -265,68 +103,77 @@
         <div class="mt-4 sub-panel p-4">
           <div class="flex items-center justify-between">
             <div>
-              <p class="text-[10px] uppercase tracking-[0.16em] text-neutral-600">Current highest</p>
-              <p class="mt-1 text-2xl font-black text-white" id="current-price-mobile">$0</p>
+              <p class="label">Current highest</p>
+              <p id="starting-price" class="mt-1 text-2xl font-black text-neutral-900">$0</p>
             </div>
             <div class="text-right">
-              <p class="text-[10px] uppercase tracking-[0.16em] text-neutral-600">Starting</p>
-              <p class="mt-1 text-sm font-semibold text-neutral-400" id="starting-price-mobile">$0</p>
+              <p class="label">Starting</p>
+              <p id="starting-price" class="mt-1 text-sm font-semibold text-neutral-600">$0</p>
             </div>
           </div>
         </div>
       </section>
 
+      <!-- ROOM PANEL -->
       <section class="panel p-5 lg:p-6 flex flex-col min-w-0 min-h-[620px]">
-        <div class="flex items-center justify-between pb-4 border-b border-[#272727]">
+        <div class="panel-head">
           <div>
-            <p class="text-[10px] uppercase tracking-[0.2em] text-neutral-600">Room panel</p>
-            <h2 id="right-panel-title" class="mt-1 text-sm font-semibold text-white">Bidding</h2>
+            <p class="label">Room panel</p>
+            <h2 id="right-panel-title" class="mt-1 text-sm font-semibold text-neutral-800">Bidding</h2>
           </div>
-          <span
-            class="w-8 h-8 rounded-lg bg-[#181818] border border-[#2b2b2b] flex items-center justify-center text-neutral-500">◉</span>
+          <span class="icon-chip">◉</span>
         </div>
 
-        <div class="mt-4 p-1 rounded-lg bg-[#0b0b0b] border border-[#242424] flex gap-1">
-          <button id="bid-tab" onclick="switchRoomPanel('bid')"
-            class="toggle-button active flex-1 py-2 rounded-md text-[10px] font-semibold">Place Bid</button>
-          <button id="activity-tab" onclick="switchRoomPanel('activity')"
-            class="toggle-button flex-1 py-2 rounded-md text-[10px] font-semibold">Activity</button>
+        <div class="tab-bar mt-4">
+          <button id="bid-tab" onclick="switchRoomPanel('bid')" class="toggle-button active">Place Bid</button>
+          <button id="activity-tab" onclick="switchRoomPanel('activity')" class="toggle-button">Activity</button>
         </div>
 
-        <div id="bid-panel" class="flex-1 flex flex-col mt-5">
+        <div id="bid-panel" class="flex-1 flex flex-col mt-5 min-h-0">
           <div class="sub-panel p-4">
-            <p class="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Your bid</p>
-            <p class="mt-2 text-sm text-neutral-500 leading-6">Place your bid and follow the auction in real time.</p>
+            <p class="label">Your bid</p>
+            <p id="bid-hint" class="mt-2 text-sm text-neutral-500 leading-6">Place your bid and follow the auction in
+              real time.</p>
 
-            <div class="relative mt-5">
-              <span class="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-neutral-600">$</span>
-              <input type="number" id="bid-input" placeholder="Enter your bid"
-                class="premium-input w-full rounded-xl pl-8 pr-4 py-3.5 text-sm text-white placeholder:text-neutral-700">
+            <div id="bid-controls">
+              <div class="bid-input-wrap mt-5">
+                <span class="bid-currency">$</span>
+                <input type="number" id="bid-input" placeholder="Enter your bid" class="premium-input w-full">
+              </div>
+
+              <button onclick="placeBid()" class="primary-button w-full mt-3 rounded-xl py-3.5 text-sm font-bold">Place
+                bid</button>
+              <p class="mt-3 text-[10px] text-neutral-400 text-center">Press Enter to place your bid</p>
             </div>
 
-            <button onclick="placeBid()" class="primary-button w-full mt-3 rounded-xl py-3.5 text-sm font-bold">Place
-              bid</button>
-            <p class="mt-3 text-[10px] text-neutral-700 text-center">Press Enter to place your bid</p>
+            <div id="host-bid-notice" class="hidden host-notice mt-5">
+              <p class="text-sm font-semibold text-neutral-800">You are the host</p>
+              <p class="mt-1 text-[11px] text-neutral-500">Bidding is disabled for the host. Use the host panel below to
+                manage the auction.</p>
+            </div>
           </div>
 
           <div class="mt-auto pt-5">
             <div class="flex items-center justify-between">
-              <span class="text-[10px] uppercase tracking-[0.15em] text-neutral-600">Room status</span>
-              <span class="flex items-center gap-2 text-[10px] text-neutral-500"><span
-                  class="w-1.5 h-1.5 rounded-full bg-white"></span>Connected</span>
+              <span class="label">Room status</span>
+              <span class="flex items-center gap-2 text-[10px] text-neutral-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Connected
+              </span>
             </div>
           </div>
         </div>
 
         <div id="activity-panel" class="hidden flex-1 flex flex-col mt-5 min-h-0">
-          <div class="sub-panel flex-1 overflow-hidden flex flex-col">
-            <div class="px-4 py-3 border-b border-[#242424]">
-              <p class="text-[10px] uppercase tracking-[0.16em] text-neutral-600">Room events</p>
-              <p class="mt-1 text-[10px] text-neutral-700">Users joining, leaving and auction updates</p>
+          <div class="sub-panel flex-1 overflow-hidden flex flex-col min-h-0">
+            <div class="feed-head">
+              <div>
+                <p class="label">Room events</p>
+                <p class="mt-1 text-[10px] text-neutral-400">Users joining, leaving and auction updates</p>
+              </div>
             </div>
-            <div id="room-activity-feed" class="flex-1 min-h-0 hidden-scrollbar px-4">
+            <div id="room-activity-feed" class="feed-scroll px-4">
               <div class="py-8 text-center activity-empty">
-                <p class="text-[11px] text-neutral-600">No room activity yet.</p>
+                <p class="text-[11px] text-neutral-500">No room activity yet.</p>
               </div>
             </div>
           </div>
@@ -334,38 +181,74 @@
 
         <div id="host-sidebar" class="mt-5">
           <div id="host-controls" class="hidden">
-            <div class="border-t border-[#292929] pt-5">
+            <div class="border-t border-neutral-200 pt-5">
               <div class="flex items-center justify-between mb-4">
                 <div>
-                  <p class="text-[10px] uppercase tracking-[0.18em] text-neutral-600">Host panel</p>
-                  <h3 class="mt-1 text-sm font-semibold text-white">Manage auction</h3>
+                  <p class="label">Host panel</p>
+                  <h3 class="mt-1 text-sm font-semibold text-neutral-800">Manage auction</h3>
                 </div>
-                <span class="text-[9px] uppercase tracking-[0.15em] text-neutral-600">Host</span>
+                <span class="text-[9px] uppercase tracking-[0.15em] text-neutral-400">Host</span>
+              </div>
+
+              <!-- ITEM CONTROLS -->
+              <div id="auction-controls" class="mb-5">
+                <div class="flex items-center justify-between mb-3">
+                  <div>
+                    <p class="field-label">Current item</p>
+                    <p id="host-item-status" class="mt-1 text-xs font-semibold text-neutral-700">
+                      Paused
+                    </p>
+                  </div>
+
+                  <span id="host-item-status-dot" class="w-2 h-2 rounded-full bg-neutral-400">
+                  </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+
+                  <button id="start-item-btn" onclick="startCurrentItem()"
+                    class="primary-button rounded-lg py-2.5 text-xs font-bold">
+                    ▶ Start
+                  </button>
+
+                  <button id="pause-item-btn" onclick="pauseCurrentItem()"
+                    class="secondary-button rounded-lg py-2.5 text-xs font-bold">
+                    ⏸ Pause
+                  </button>
+
+                  <button id="resume-item-btn" onclick="resumeCurrentItem()"
+                    class="secondary-button rounded-lg py-2.5 text-xs font-bold">
+                    ▶ Resume
+                  </button>
+
+                  <button id="close-item-btn" onclick="closeCurrentItem()"
+                    class="secondary-button rounded-lg py-2.5 text-xs font-bold">
+                    🔒 Close
+                  </button>
+
+                </div>
               </div>
 
               <div class="space-y-3">
                 <div>
-                  <label for="new-item-title"
-                    class="block text-[10px] uppercase tracking-[0.16em] text-neutral-600 mb-2">Item</label>
+                  <label for="new-item-title" class="field-label">Item</label>
                   <input type="text" id="new-item-title" placeholder="Item title"
-                    class="premium-input w-full rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-neutral-700">
+                    class="premium-input w-full rounded-lg px-3 py-2.5 text-xs">
                 </div>
 
                 <div>
-                  <label for="new-item-price"
-                    class="block text-[10px] uppercase tracking-[0.16em] text-neutral-600 mb-2">Starting price</label>
+                  <label for="new-item-price" class="field-label">Starting price</label>
                   <div class="relative">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-neutral-600">$</span>
+                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-neutral-400">$</span>
                     <input type="number" id="new-item-price" placeholder="0"
-                      class="premium-input w-full rounded-lg pl-7 pr-3 py-2.5 text-xs text-white placeholder:text-neutral-700">
+                      class="premium-input w-full rounded-lg pl-7 pr-3 py-2.5 text-xs">
                   </div>
                 </div>
 
                 <div>
-                  <label for="new-item-desc"
-                    class="block text-[10px] uppercase tracking-[0.16em] text-neutral-600 mb-2">Description</label>
+                  <label for="new-item-desc" class="field-label">Description</label>
                   <textarea id="new-item-desc" placeholder="Describe the item..."
-                    class="premium-input w-full h-20 resize-none rounded-lg px-3 py-2.5 text-xs text-white placeholder:text-neutral-700"></textarea>
+                    class="premium-input w-full h-20 resize-none rounded-lg px-3 py-2.5 text-xs"></textarea>
                 </div>
 
                 <button onclick="addItemToQueue()" class="primary-button w-full rounded-lg py-2.5 text-xs font-bold">Add
@@ -377,35 +260,32 @@
       </section>
     </div>
 
+    <!-- PEOPLE STRIP: bigger cards + horizontal scroll -->
     <section class="panel p-5">
       <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div class="flex items-center gap-3 shrink-0">
-          <div class="flex -space-x-2">
-            <div
-              class="w-9 h-9 rounded-full bg-[#242424] border border-[#383838] flex items-center justify-center text-[10px] font-bold text-neutral-200">
-              AH</div>
+          <div class="avatar-stack">
+            <div class="avatar-stack-mark">AH</div>
           </div>
           <div>
             <div class="flex items-center gap-2">
-              <h3 class="text-xs font-semibold text-white">People in this auction</h3>
+              <h3 class="text-xs font-semibold text-neutral-800">People in this auction</h3>
               <span id="seat-counter" class="text-[9px] font-semibold text-neutral-500">0 / 10</span>
             </div>
-            <p class="text-[10px] text-neutral-700 mt-0.5">Everyone connected to this room</p>
+            <p class="text-[10px] text-neutral-400 mt-0.5">Everyone connected to this room</p>
           </div>
         </div>
 
-        <div id="seats-grid" class="flex items-center gap-2 overflow-x-auto pb-1 min-w-0"></div>
+        <div id="seats-grid" class="seats-scroll"></div>
       </div>
     </section>
   </main>
 
   <div id="winner-modal" class="hidden fixed inset-0 modal-backdrop items-center justify-center z-50 p-4">
     <div class="panel w-full max-w-md p-8 text-center shadow-premium">
-      <div
-        class="w-14 h-14 mx-auto rounded-full bg-[#1a1a1a] border border-[#353535] flex items-center justify-center text-xl">
-        ✓</div>
-      <p class="mt-5 text-[10px] uppercase tracking-[0.22em] text-neutral-600">Auction complete</p>
-      <h2 class="mt-2 text-2xl font-black tracking-tight text-white">Auction ended</h2>
+      <div class="winner-icon">✓</div>
+      <p class="mt-5 text-[10px] uppercase tracking-[0.22em] text-neutral-400">Auction complete</p>
+      <h2 class="mt-2 text-2xl font-black tracking-tight text-neutral-900">Auction ended</h2>
       <p id="winner-announcement" class="mt-3 text-sm text-neutral-500 leading-6">Winner has been declared.</p>
       <button onclick="closeWinnerModal()" class="primary-button w-full mt-7 py-3 rounded-xl text-sm font-bold">Return
         to lobby</button>
@@ -432,16 +312,11 @@
         activityPanel.classList.add("hidden");
         bidPanel.classList.remove("hidden");
         activityTab.classList.remove("active");
-        host_sidebar.classList.add("active");
         bidTab.classList.add("active");
+        host_sidebar.classList.remove("hidden");
         title.textContent = "Bidding";
       }
     }
-    window.addEventListener('beforeunload', () => {
-      if (activeSocket) {
-        activeSocket.disconnect();
-      }
-    });
   </script>
   <script src="/js/room.js"></script>
 </body>

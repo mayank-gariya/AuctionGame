@@ -30,11 +30,6 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/api', auctionRoutes);
 
-// Basic Health Check Route
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'Auction backend is running smoothly' });
-});
-
 configureSockets(io);
 
 const PORT = process.env.PORT || 5000;
