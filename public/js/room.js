@@ -1,29 +1,74 @@
-const API_URL = "http://localhost:8000/api";
-const urlParams = new URLSearchParams(window.location.search);
-const roomId = urlParams.get("roomId");
-const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
-const accessToken = localStorage.getItem("accessToken");
+    const API_URL = "http://localhost:8000/api";
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = urlParams.get("roomId");
+    const currentUser = JSON.parse(localStorage.getItem("currentUser") || "null");
+    const accessToken = localStorage.getItem("accessToken");
+    let auctionTimerInterval = null;
 
-let socket = null;
-let currentRoomData = null;
+    let socket = null;
+    let currentRoomData = null;
 
-if (!roomId || !currentUser) {
-    alert("Unauthorized or missing room ID. Redirecting...");
-    window.location.href = "/";
-}
-
-function getHeaders() {
-    const headers = {
-        "Content-Type": "application/json"
-    };
-
-    if (accessToken) {
-        headers.Authorization = `Bearer ${accessToken}`;
+    if (!roomId || !currentUser) {
+        alert("Unauthorized or missing room ID. Redirecting...");
+        window.location.href = "/";
     }
 
-    return headers;
-}
+    function getHeaders() {
+        const headers = {
+            "Content-Type": "application/json"
+        };
 
+        if (accessToken) {
+            headers.Authorization = `Bearer ${accessToken}`;
+        }
+
+        return headers;
+    }
+
+    function updateAuctionTimerDisplay(seconds) {
+        const timerElement = document.getElementById("auction-timer");
+
+        if (!timerElement) return;
+
+        const safeSeconds = Math.max(0, Math.ceil(seconds));
+
+        const minutes = Math.floor(safeSeconds / 60);
+        const remainingSeconds = safeSeconds % 60;
+
+        timerElement.textContent =
+            `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+    }
+
+function startAuctionCountdown(itemId, endsAt, serverNow) {
+    const timerElement = document.getElementById("auction-timer");
+
+    if (!timerElement) return;
+
+    if (auctionTimerInterval) {
+        clearInterval(auctionTimerInterval);
+    }
+
+    // Calculate the difference between server and client clocks
+    const clockOffset = serverNow - Date.now();
+
+    const updateCountdown = () => {
+        const remainingSeconds = Math.max(
+            0,
+            Math.ceil((endsAt - (Date.now() + clockOffset)) / 1000)
+        );
+
+        updateAuctionTimerDisplay(remainingSeconds);
+
+        if (remainingSeconds <= 0) {
+            clearInterval(auctionTimerInterval);
+            auctionTimerInterval = null;
+        }
+    };
+
+    updateCountdown();
+
+    auctionTimerInterval = setInterval(updateCountdown, 250);
+}
 async function initRoom() {
     try {
         const userBadge = document.getElementById("user-badge");
@@ -63,30 +108,94 @@ async function initRoom() {
             renderParticipants(currentRoomData.participants)
         });
 
+        socket.on("bid_rejected", (data) => {
+            console.error("❌ Bid rejected:", data);
+
+            appendHistory(
+                data.message || "Bid was rejected.",
+                "error"
+            );
+
+            alert(data.message || "Bid was rejected.");
+        });
+
+        socket.on("auction_timer_start", (data) => {
+            const { itemId, endsAt, serverNow } = data;
+
+            console.log("⏱️ Auction timer started:", {
+                itemId,
+                endsAt,
+                serverNow
+            });
+
+            startAuctionCountdown(itemId, endsAt, serverNow);
+        });
+
+        socket.on("auction_timer_end", (data) => {
+            console.log("⏰ Auction timer ended:", data);
+
+            if (auctionTimerInterval) {
+                clearInterval(auctionTimerInterval);
+                auctionTimerInterval = null;
+            }
+
+            updateAuctionTimerDisplay(0);
+        });
+
+        socket.on("next_item_selected", (data) => {
+            console.log("➡️ Next item selected:", data);
+
+            appendHistory(
+                `Next item selected: ${data.item.title}`,
+                "queue"
+            );
+
+            fetchRoomDetails();
+        });
+
+        socket.on("next_item_rejected", (data) => {
+            console.error("❌ Next item rejected:", data);
+
+            alert(
+                data.message ||
+                "Unable to select the next item."
+            );
+        });
 
         socket.on("bid_update", (data) => {
             appendHistory(
-                `${data.username} has placed a bid on item: $${data.bidAmount}`, 
-                "bid", 
-                "price-history-feed", 
+                `${data.username} has placed a bid on item: $${data.bidAmount}`,
+                "bid",
+                "price-history-feed",
                 "activity-empty-bids"
             );
-            
+
+            const activeItem = currentRoomData?.itemQueue?.find(
+                (item) =>
+                    String(item.id || item._id) === String(data.itemId)
+            );
+
+            if (activeItem) {
+                activeItem.currentBid = Number(data.bidAmount);
+                activeItem.highestBidderId = data.userId;
+                activeItem.highestBidderName = data.username;
+            }
+
+            // Update the visible current/highest bid immediately
             const currentPrices = document.querySelectorAll(
                 "#current-price, #current-highest-price"
             );
 
             currentPrices.forEach((element) => {
-                element.textContent = `$${Number(data.bidAmount).toLocaleString()}`;
+                element.textContent =
+                    `$${Number(data.bidAmount).toLocaleString()}`;
             });
 
-            const activeItem = currentRoomData?.itemQueue?.[0];
-
-            if (activeItem) {
-                activeItem.currentBid = Number(data.bidAmount);
-            }
+            // Update the complete active-item section
+            renderActiveItem();
         });
 
+        
         socket.on("queue_updated", (data) => {
             appendHistory(data.message, "queue");
             fetchRoomDetails();
@@ -103,7 +212,7 @@ async function initRoom() {
             alert(data.message || "Auction control action was rejected.");
         });
 
-        socket.on("auction_ended", (data) => {
+        socket.on("auction_winner", (data) => {
             appendHistory(
                 `Auction ended — ${data.winnerName} won ${data.itemTitle}.`,
                 "winner"
@@ -136,6 +245,7 @@ async function initRoom() {
         window.location.href = "/";
     }
 }
+
 
 async function fetchRoomDetails() {
     try {
@@ -214,7 +324,22 @@ function renderRoomUI() {
 }
 
 function getCurrentAuctionItem() {
-    return currentRoomData?.itemQueue?.[0] || null;
+    if (!currentRoomData) return null;
+
+    const queue = currentRoomData.itemQueue || [];
+
+    if (currentRoomData.currentItemId) {
+        return queue.find(
+            item =>
+                String(item.id || item._id) ===
+                String(currentRoomData.currentItemId)
+        ) || null;
+    }
+
+    return queue.find(
+        item => item.status === "pending" ||
+                item.status === "active"
+    ) || null;
 }
 
 
@@ -332,6 +457,25 @@ function updateItemStatus(status) {
         roomId,
         itemId,
         status
+    });
+}
+
+function selectNextItem() {
+    if (!socket || !socket.connected) {
+        alert("You are not connected to the auction.");
+        return;
+    }
+
+    if (
+        !currentUser ||
+        String(currentUser.id) !== String(currentRoomData?.hostId)
+        ){
+        alert("Only the host can select the next item.");
+        return;
+    }
+
+    socket.emit("next-auction-item", {
+        roomId
     });
 }
 
@@ -458,7 +602,21 @@ function renderActiveItem() {
         return;
     }
 
-    const activeItem = queue[0];
+    const activeItem = getCurrentAuctionItem();
+
+    if (!activeItem) {
+        if (title) title.textContent = "Waiting for next item...";
+        if (description) {
+            description.textContent = "The host has not selected an item yet.";
+        }
+
+        startingPrices.forEach(el => el.textContent = "$0");
+        currentPrices.forEach(el => el.textContent = "$0");
+
+        if (seller) seller.textContent = "Seller: —";
+
+        return;
+    }
 
     if (title) {
         title.textContent = activeItem.title || "Untitled item";
@@ -547,7 +705,7 @@ function placeBid() {
     }
 
     // Get current auction item FIRST
-    const activeItem = currentRoomData?.itemQueue?.[0];
+    const activeItem = getCurrentAuctionItem();
 
     if (!activeItem) {
         alert("There is no item currently in the auction.");
@@ -765,6 +923,4 @@ window.addEventListener("beforeunload", () => {
     }
 });
 
-document.addEventListener("DOMContentLoaded", () => {
-    window.onload = initRoom;
-});
+document.addEventListener("DOMContentLoaded", initRoom);

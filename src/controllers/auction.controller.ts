@@ -1,8 +1,6 @@
 import { Request ,Response } from "express";
-import { AuctionItem ,AuctionRoom } from "../types/auction";
 import { Room } from '../models/room.model.js';
 import crypto from 'crypto';
-
 
 import { AuthenticatedRequest } from '../middleware/auth.middleware.js';
 

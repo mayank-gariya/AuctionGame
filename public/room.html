@@ -36,6 +36,19 @@
   </header>
 
   <main class="app-main">
+
+    <div class="mb-4 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
+      <div class="flex items-center justify-between">
+        <span class="text-xs font-semibold text-neutral-500">
+          Bidding Time
+        </span>
+
+        <span id="auction-timer" class="text-lg font-bold text-neutral-900">
+          00:30
+        </span>
+      </div>
+    </div>
+
     <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5 items-stretch">
 
       <!-- CURRENT AUCTION -->
@@ -104,7 +117,7 @@
           <div class="flex items-center justify-between">
             <div>
               <p class="label">Current highest</p>
-              <p id="starting-price" class="mt-1 text-2xl font-black text-neutral-900">$0</p>
+              <p id="current-price" class="mt-1 text-2xl font-black text-neutral-900">$0</p>
             </div>
             <div class="text-right">
               <p class="label">Starting</p>
@@ -204,6 +217,7 @@
                   </span>
                 </div>
 
+
                 <div class="grid grid-cols-2 gap-2">
 
                   <button id="start-item-btn" onclick="startCurrentItem()"
@@ -224,6 +238,11 @@
                   <button id="close-item-btn" onclick="closeCurrentItem()"
                     class="secondary-button rounded-lg py-2.5 text-xs font-bold">
                     🔒 Close
+                  </button>
+
+                  <button id="next-item-btn" onclick="selectNextItem()"
+                    class="secondary-button col-span-2 rounded-lg py-2.5 text-xs font-bold">
+                    ➡ Next Item
                   </button>
 
                 </div>

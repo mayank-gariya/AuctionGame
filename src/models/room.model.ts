@@ -7,6 +7,10 @@ export interface IAuctionItem {
   startingPrice: number;
   sellerId: string;
   status: 'pending' | 'active' | 'sold' | 'unsold';
+
+  currentBid?: number;
+  highestBidderId?: string;
+  highestBidderName?: string;
 }
 
 export interface IParticipant {
@@ -20,6 +24,7 @@ export interface IRoom extends Document {
   maxSeats: number;
   participants: IParticipant[];
   itemQueue: IAuctionItem[];
+  currentItemId?: string;
   status: 'waiting' | 'live' | 'ended';
   createdAt: Date;
 }
@@ -30,7 +35,27 @@ const auctionItemSchema = new Schema<IAuctionItem>({
   description: { type: String, required: true },
   startingPrice: { type: Number, required: true },
   sellerId: { type: String, required: true },
-  status: { type: String, enum: ['pending', 'active', 'sold', 'unsold'], default: 'pending' }
+
+  status: {
+    type: String,
+    enum: ['pending', 'active', 'sold', 'unsold'],
+    default: 'pending'
+  },
+
+  currentBid: {
+    type: Number,
+    default: 0
+  },
+
+  highestBidderId: {
+    type: String,
+    default: undefined
+  },
+
+  highestBidderName: {
+    type: String,
+    default: undefined
+  }
 });
 
 const participantSchema = new Schema<IParticipant>(
@@ -52,6 +77,11 @@ const roomSchema = new Schema<IRoom>({
   },
 
   itemQueue: [auctionItemSchema],
+
+  currentItemId: {
+    type: String,
+    default: undefined
+  },
 
   status: {
     type: String,
